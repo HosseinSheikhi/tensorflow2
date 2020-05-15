@@ -17,6 +17,8 @@ import numpy as np
 import time
 
 tf.nn.relu(5)
+
+
 def linear_layer(x):
     return 3 * x + 2
 
@@ -24,9 +26,11 @@ def linear_layer(x):
 def simple_nn(x):
     return tf.nn.relu(linear_layer(x))
 
+
 @tf.function
 def modified_nn(x):
     return tf.nn.relu(linear_layer(x))
+
 
 input_array = np.random.rand(50)
 
