@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 """
-This could did not work on my PC but worked in GC
+This could did not work on my PC but worked in Google Colab
 """
 
 (x_train, y_train), (x_test, y_test) = boston_housing.load_data()
