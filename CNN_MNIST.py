@@ -19,7 +19,9 @@ x_train, x_test = x_train / 255.0, x_test / 255.0
 x_train, x_test = x_train[..., tf.newaxis], x_test[..., tf.newaxis]
 
 train_ds = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-train_ds = train_ds.batch(batch_size).repeat(epoch).shuffle(10000)
+train_ds = train_ds.batch(batch_size).shuffle(10000)
+
+test_ds = tf.data.Dataset.from_tensor_slices((x_test, y_test))
 
 
 class ConvolutionNeuralNet(Model):
@@ -44,58 +46,67 @@ class ConvolutionNeuralNet(Model):
         flatten_out = self.flatten(maxpol2_out)
         fc1_out = self.fc1(flatten_out)
         out = self.out(fc1_out)
-        if not training:
-            out = tf.nn.softmax(out)
-
         return out
 
 
 conv_net = ConvolutionNeuralNet()
 
-@tf.function
-def cross_entropy_loss(pred_y, true_y):
-    true_y = tf.cast(true_y, tf.int64)
-    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=true_y,
-                                                          logits=pred_y)  # it doesn't net one hot encoding
-    return tf.reduce_mean(loss)
-
-
-def accuracy(y_pred, y_true):
-    correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.cast(y_true, tf.int64))
-    return tf.reduce_mean(tf.cast(correct_prediction, tf.float32), axis=-1)
-
-
+loss_function = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 optimizer = tf.keras.optimizers.Adam(learning_rate)
+
+train_loss = tf.keras.metrics.Mean(name='train_loss')
+train_acc = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
+
+test_loss = tf.keras.metrics.Mean(name='test_loss')
+test_acc = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
+
 
 @tf.function
 def train_neural_network(x, y):
     with tf.GradientTape() as g:
         prediction = conv_net(x, training=True)
-        loss = cross_entropy_loss(prediction, y)
+        loss = loss_function(y, prediction)
 
     trainable_variables = conv_net.trainable_variables
-
     gradients = g.gradient(loss, trainable_variables)
-
     optimizer.apply_gradients(zip(gradients, trainable_variables))
 
+    train_loss(loss)
+    train_acc(y, prediction)
 
-step = 0
-for (x_batch, y_batch) in train_ds:
-    train_neural_network(x_batch, y_batch)
 
-    step += 1
-    if step % log_step == 0:
-        pred = conv_net(x_batch, training=True)
-        loss = cross_entropy_loss(pred, y_batch)
-        acc = accuracy(pred, y_batch)
-        print("step: {}  loss: {}  acc: {} ".format(step, loss, acc))
+@tf.function
+def test_neural_network(images, labels):
+    # training=False is only needed if there are layers with different
+    # behavior during training versus inference (e.g. Dropout).
+    predictions = conv_net(images, training=False)
+    t_loss = loss_function(labels, predictions)
 
+    test_loss(t_loss)
+    test_acc(labels, predictions)
+
+
+for repeat in range(epoch):
+    # reset matrices at the start of each epoch
+    train_loss.reset_states()
+    train_acc.reset_states()
+    test_loss.reset_states()
+    test_acc.reset_states()
+
+    for (x_batch, y_batch) in train_ds:
+        train_neural_network(x_batch, y_batch)
+
+    for (x_test, y_test) in test_ds:
+        test_neural_network(x_test, y_test)
+
+    template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
+    print(template.format(repeat + 1,
+                          train_loss.result(),
+                          train_acc.result() * 100,
+                          test_loss.result(),
+                          test_acc.result() * 100))
 
 print(conv_net.summary())
-prediction = conv_net(x_test, training=False)
-print("Total Acc = {}".format(accuracy(prediction, y_test)))
-
 n_images = 5
 test_images = x_test[:n_images]
 predictions = conv_net(test_images)
