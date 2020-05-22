@@ -1,11 +1,12 @@
 import tensorflow as tf
 from tensorflow.keras import datasets
+from tensorflow.keras.layers import Layer
 import numpy as np
 import matplotlib.pyplot as plt
 
 feature_size = 28 * 28
 batch_size = 256
-epochs = 2
+epochs = 10
 
 learning_rate = 0.001
 num_hidden_1 = 128
@@ -23,29 +24,33 @@ x_train, x_test = x_train / 255.0, x_test / 255.0
 train_ds = tf.data.Dataset.from_tensor_slices((x_train, y_train))
 train_ds = train_ds.shuffle(50000).repeat(epochs).batch(batch_size).prefetch(2)
 
-# Define and initialize layers' biases and weights
-random_normal = tf.random_normal_initializer(mean=0.0, stddev=0.1)
-weights = {
-    "h1": tf.Variable(random_normal([feature_size, num_hidden_1])),
-    "h2": tf.Variable(random_normal([num_hidden_1, num_hidden_2])),
-    "out": tf.Variable(random_normal([num_hidden_2, num_classes]))
-}
 
-bias = {
-    "bias1": tf.Variable(tf.ones([num_hidden_1])),
-    "bias2": tf.Variable(tf.ones([num_hidden_2])),
-    "out": tf.Variable(tf.ones([num_classes]))
-}
+class Dense(Layer):
+    def __init__(self, units):
+        super(Dense, self).__init__()
+        self.units = units
+
+    def build(self, input_shape):
+        self.w = self.add_weight(shape=(input_shape[-1], self.units), initializer='random_normal', trainable=True)
+        self.b = self.add_weight(shape=(self.units,), initializer='random_normal', trainable=True)
+
+    def call(self, inputs):
+        return tf.matmul(inputs, self.w) + self.b
+
+
+dense_layer_1 = Dense(num_hidden_1)
+dense_layer_2 = Dense(num_hidden_2)
+dense_layer_3 = Dense(num_classes)
 
 
 def neural_net(x):
-    layer_1_out = tf.add(tf.matmul(x, weights["h1"]), bias["bias1"])
+    layer_1_out = dense_layer_1(x)
     layer_1_out_activated = tf.nn.relu(layer_1_out)
 
-    layer_2_out = tf.add(tf.matmul(layer_1_out_activated, weights['h2']), bias['bias2'])
+    layer_2_out = dense_layer_2(layer_1_out_activated)
     layer_2_out_activated = tf.nn.relu(layer_2_out)
 
-    out_layer = tf.add(tf.matmul(layer_2_out_activated, weights["out"]), bias["out"])
+    out_layer = dense_layer_3(layer_2_out_activated)
     out_prob = tf.nn.softmax(out_layer)
 
     return out_prob
@@ -71,7 +76,7 @@ def train_neural_network(x, y):
         loss = cross_entropy(prediction, y)
 
     # variables must train
-    trainable_variables = [weights['h1'], weights['h2'], weights['out'], bias['bias1'], bias['bias2'], bias['out']]
+    trainable_variables = dense_layer_1.trainable_variables + dense_layer_2.trainable_variables + dense_layer_3.trainable_variables
 
     gradient = g.gradient(loss, trainable_variables)
 
