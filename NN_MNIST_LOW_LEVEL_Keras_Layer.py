@@ -38,22 +38,26 @@ class Dense(Layer):
         return tf.matmul(inputs, self.w) + self.b
 
 
-dense_layer_1 = Dense(num_hidden_1)
-dense_layer_2 = Dense(num_hidden_2)
-dense_layer_3 = Dense(num_classes)
+class NeuralNet(Layer):
+    def __init__(self):
+        super(NeuralNet, self).__init__()
+        self.dense_layer_1 = Dense(num_hidden_1)
+        self.dense_layer_2 = Dense(num_hidden_2)
+        self.dense_layer_3 = Dense(num_classes)
+
+    def call(self, inputs):
+        layer_1_out = self.dense_layer_1(inputs)
+        layer_1_out_activated = tf.nn.relu(layer_1_out)
+
+        layer_2_out = self.dense_layer_2(layer_1_out_activated)
+        layer_2_out_activated = tf.nn.relu(layer_2_out)
+
+        out_layer = self.dense_layer_3(layer_2_out_activated)
+        out_prob = tf.nn.softmax(out_layer)
+        return out_prob
 
 
-def neural_net(x):
-    layer_1_out = dense_layer_1(x)
-    layer_1_out_activated = tf.nn.relu(layer_1_out)
-
-    layer_2_out = dense_layer_2(layer_1_out_activated)
-    layer_2_out_activated = tf.nn.relu(layer_2_out)
-
-    out_layer = dense_layer_3(layer_2_out_activated)
-    out_prob = tf.nn.softmax(out_layer)
-
-    return out_prob
+neural_net = NeuralNet()
 
 
 def cross_entropy(y_pred, y_true):
@@ -67,7 +71,7 @@ def accuracy(y_pred, y_true):
     return tf.reduce_mean(tf.cast(correct_prediction, tf.float32), axis=-1)
 
 
-optimizer = tf.optimizers.SGD(learning_rate)
+optimizer = tf.optimizers.Adam(learning_rate)
 
 
 def train_neural_network(x, y):
@@ -76,8 +80,7 @@ def train_neural_network(x, y):
         loss = cross_entropy(prediction, y)
 
     # variables must train
-    trainable_variables = dense_layer_1.trainable_variables + dense_layer_2.trainable_variables + dense_layer_3.trainable_variables
-
+    trainable_variables = neural_net.trainable_variables
     gradient = g.gradient(loss, trainable_variables)
 
     optimizer.apply_gradients(zip(gradient, trainable_variables))
