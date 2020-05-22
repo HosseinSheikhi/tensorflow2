@@ -15,8 +15,9 @@ step_log = 50
 
 (x_train, y_train), (x_test, y_test) = datasets.mnist.load_data()
 x_train, x_test = np.array(x_train, dtype=np.float64), np.array(x_test, dtype=np.float64)
-x_train, x_test = x_train[..., tf.newaxis], x_test[..., tf.newaxis]
 x_train, x_test = x_train / 255.0, x_test / 255.0
+
+x_train, x_test = x_train[..., tf.newaxis], x_test[..., tf.newaxis]
 
 # convert to tf dataset
 train_ds = tf.data.Dataset.from_tensor_slices((x_train, y_train))
@@ -24,8 +25,31 @@ train_ds = tf.data.Dataset.from_tensor_slices((x_train, y_train))
 train_ds = train_ds.batch(batch_size).repeat(epoch).shuffle(10000)
 
 
-def conv2d(input, filter, bias, stride=1):
-    x = tf.nn.conv2d(input=input, filters=filter, strides=[1, stride, stride, 1], padding='SAME')
+def conv2d(input, filter_weights, bias, stride=1):
+    """
+
+    :param input: a batch of images, dim: [batch, 28, 28, channel] which channel = 1 for MNIST
+    :param filter_weights: are the weights defined in the filter. Weights must be in for-d tensors
+                            [filter_height, filter_width, input_depth, output_depth]
+                            (filter_height, filter_width) --> our conv kernel size i.e. (3,3) or (5,5)
+                            input_depth --> channel of input from prev layer if it is first layer and
+                                            input image is RGB input_depth = 3 and =1 for gray
+                                            if it receive the output of an prev conv layer
+                                            input_depth_for_layer_i = output_depth_for_layer_i_minus_1
+                            output_depth --> number of filters or kernels we need to apply to the input,
+                                            i.e. would better to have 64 cnn kernel in this layer so
+                                            output_depth = 64
+    :param bias: you know better
+    :param stride: stride also must be defined in 4-d tensor,
+                    the reason behind this is that our input also is a 4-d tensor
+                    [num_samples, height, width, color_channel]
+                    Usually, we need to just have strides in each channel, i.e. when our image is RGB we will not
+                    have strides and jump from R to B! Stride is need just in R, then in G and the B
+                    [1, stride, stride, 1] applies the conv_kernel stride on every image (first 1),
+                    and also every channel of image (last 1)
+    :return:
+    """
+    x = tf.nn.conv2d(input=input, filters=filter_weights, strides=[1, stride, stride, 1], padding='SAME')
     x = tf.nn.bias_add(x, bias)
     return tf.nn.relu(x)
 
