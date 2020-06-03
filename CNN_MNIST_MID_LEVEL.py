@@ -6,10 +6,13 @@ import matplotlib.pyplot as plt
 import datetime
 import tensorboard
 
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+for physical_device in physical_devices:
+    tf.config.experimental.set_memory_growth(physical_device, True)
 batch_size = 128
-epoch = 1
-num_cnn_filter_1 = 64
-num_cnn_filter_2 = 32
+epoch = 20
+num_cnn_filter_1 = 32
+num_cnn_filter_2 = 16
 fc_units_1 = 512
 num_classes = 10
 learning_rate = 0.001
@@ -79,7 +82,7 @@ class ConvolutionalNetwork(Model):
 conv_net = ConvolutionalNetwork()
 
 loss_function = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-optimizer = tf.keras.optimizers.Adam(learning_rate)
+optimizer = tf.keras.optimizers.SGD(learning_rate)
 
 train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_acc = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
@@ -92,6 +95,8 @@ train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
 test_log_dir = 'logs/gradient_tape/' + current_time + '/test'
 train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 test_summary_writer = tf.summary.create_file_writer(test_log_dir)
+
+
 @tf.function
 def train_neural_network(x, y):
     with tf.GradientTape() as g:
@@ -125,14 +130,14 @@ for repeat in range(epoch):
     for (x_batch, y_batch) in train_ds:
         train_neural_network(x_batch, y_batch)
         with train_summary_writer.as_default():
-            tf.summary.scalar('loss', train_loss.result(), step=epoch)
-            tf.summary.scalar('accuracy', train_acc.result(), step=epoch)
+            tf.summary.scalar('loss', train_loss.result(), step=repeat+ 1)
+            tf.summary.scalar('accuracy', train_acc.result(), step=repeat+ 1)
 
     for (x_test, y_test) in test_ds:
         test_neural_network(x_test, y_test)
         with test_summary_writer.as_default():
-            tf.summary.scalar('loss', test_loss.result(), step=epoch)
-            tf.summary.scalar('accuracy', test_acc.result(), step=epoch)
+            tf.summary.scalar('loss', test_loss.result(), step=repeat+ 1)
+            tf.summary.scalar('accuracy', test_acc.result(), step=repeat+ 1)
 
     template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
     print(template.format(repeat + 1,
@@ -151,5 +156,5 @@ for i in range(n_images):
     plt.show()
     print("Prediction: {}".format(np.argmax(predictions.numpy()[i])))
 
-tensorboard
+
 
