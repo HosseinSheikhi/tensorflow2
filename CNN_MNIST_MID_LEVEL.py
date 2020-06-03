@@ -3,6 +3,9 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras import datasets, Model
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime
+import tensorboard
+
 batch_size = 128
 epoch = 1
 num_cnn_filter_1 = 64
@@ -84,7 +87,11 @@ train_acc = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
 test_loss = tf.keras.metrics.Mean(name='test_loss')
 test_acc = tf.keras.metrics.SparseCategoricalAccuracy(name='test_accuracy')
 
-
+current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+test_log_dir = 'logs/gradient_tape/' + current_time + '/test'
+train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 @tf.function
 def train_neural_network(x, y):
     with tf.GradientTape() as g:
@@ -117,9 +124,15 @@ for repeat in range(epoch):
 
     for (x_batch, y_batch) in train_ds:
         train_neural_network(x_batch, y_batch)
+        with train_summary_writer.as_default():
+            tf.summary.scalar('loss', train_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', train_acc.result(), step=epoch)
 
     for (x_test, y_test) in test_ds:
         test_neural_network(x_test, y_test)
+        with test_summary_writer.as_default():
+            tf.summary.scalar('loss', test_loss.result(), step=epoch)
+            tf.summary.scalar('accuracy', test_acc.result(), step=epoch)
 
     template = 'Epoch {}, Loss: {}, Accuracy: {}, Test Loss: {}, Test Accuracy: {}'
     print(template.format(repeat + 1,
@@ -137,3 +150,6 @@ for i in range(n_images):
     plt.imshow(np.reshape(test_images[i], [28, 28]), cmap='gray')
     plt.show()
     print("Prediction: {}".format(np.argmax(predictions.numpy()[i])))
+
+tensorboard
+
